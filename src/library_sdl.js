@@ -635,14 +635,51 @@ var LibrarySDL = {
           }
           event.preventDefault();
           break;
-        case 'blur':
+        case 'pageshow':
+        case 'pagehide': {
+          var hidden = (event.type == 'pagehide') ? true : false;
+          event_hidden = {
+            type: 'visibilitychange',
+            hidden: hidden
+          };
+          SDL.events.push(event_hidden);
+          // Force-run a main event loop, since otherwise this event will never be caught!
+          Browser.mainLoop.runner();
+          break;
+        }
+        case 'mozvisibilitychange':
+        case 'webkitvisibilitychange':
+        case 'msvisibilitychange':
         case 'visibilitychange': {
-          // Un-press all pressed keys: TODO
-          for (var code in SDL.keyboardMap) {
-            SDL.events.push({
-              type: 'keyup',
-              keyCode: SDL.keyboardMap[code]
-            });
+          var hidden = false;
+          if (document.hidden !== undefined) { // Opera 12.10 and Firefox 18 and later support 
+            hidden = document.hidden;
+          } else if (document.mozHidden !== undefined) {
+            hidden = document.mozHidden;
+          } else if (document.msHidden !== undefined) {
+            hidden = document.msHidden;
+          } else if (document.webkitHidden !== undefined) {
+            hidden = document.webkitHidden;
+          }
+          event_hidden = {
+            type: 'visibilitychange',
+            hidden: hidden
+          };
+          SDL.events.push(event_hidden);
+          // Force-run a main event loop, since otherwise this event will never be caught!
+          Browser.mainLoop.runner();
+        }
+        // fall through
+        case 'blur': {
+          if (!Module['doNotCaptureKeyboard'])
+          {
+            // Un-press all pressed keys: TODO
+            for (var code in SDL.keyboardMap) {
+              SDL.events.push({
+                type: 'keyup',
+                keyCode: SDL.keyboardMap[code]
+              });
+            }         
           }
           event.preventDefault();
           break;
@@ -654,6 +691,17 @@ var LibrarySDL = {
             Browser.mainLoop.runner();
           }
           return;
+        case 'orientationchange': {     
+          var w = Module['canvas'].width;
+          var h = Module['canvas'].height;
+          event_resize = {
+            type: 'resize',
+            w: w,
+            h: h
+          };
+          SDL.events.push(event_resize);
+          break;
+        }
         case 'resize':
           SDL.events.push(event);
           // manually triggered resize event doesn't have a preventDefault member
@@ -823,6 +871,9 @@ var LibrarySDL = {
           {{{ makeSetValue('ptr', C_STRUCTS.SDL_KeyboardEvent.type, 'SDL.DOMEventToSDLEvent[event.type]', 'i32') }}};
           {{{ makeSetValue('ptr', C_STRUCTS.SDL_ResizeEvent.w, 'event.w', 'i32') }}};
           {{{ makeSetValue('ptr', C_STRUCTS.SDL_ResizeEvent.h, 'event.h', 'i32') }}};
+          //tmaniero write orientation
+          var orientation = (window.orientation != undefined) ? window.orientation : 0;
+          {{{ makeSetValue('ptr', 12, 'orientation', 'i32') }}};
           break;
         }
         case 'joystick_button_up': case 'joystick_button_down': {
@@ -838,6 +889,16 @@ var LibrarySDL = {
           {{{ makeSetValue('ptr', C_STRUCTS.SDL_JoyAxisEvent.which, 'event.index', 'i8') }}};
           {{{ makeSetValue('ptr', C_STRUCTS.SDL_JoyAxisEvent.axis, 'event.axis', 'i8') }}};
           {{{ makeSetValue('ptr', C_STRUCTS.SDL_JoyAxisEvent.value, 'SDL.joystickAxisValueConversion(event.value)', 'i32') }}};
+          break;
+        }
+        case 'blur':
+          break;
+        case 'visibilitychange': {
+          {{{ makeSetValue('ptr', C_STRUCTS.SDL_ActiveEvent.type, 'SDL.DOMEventToSDLEvent[event.type]', 'i32') }}};
+          var gain = (event.hidden == true) ? 0 : 1;
+          {{{ makeSetValue('ptr', C_STRUCTS.SDL_ActiveEvent.gain, 'gain', 'i8') }}};
+          var state = 0;
+          {{{ makeSetValue('ptr', C_STRUCTS.SDL_ActiveEvent.state, 'state', 'i8') }}};
           break;
         }
         default: throw 'Unhandled SDL event: ' + event.type;
@@ -1044,8 +1105,28 @@ var LibrarySDL = {
       document.addEventListener("keyup", SDL.receiveEvent);
       document.addEventListener("keypress", SDL.receiveEvent);
       window.addEventListener("blur", SDL.receiveEvent);
-      document.addEventListener("visibilitychange", SDL.receiveEvent);
     }
+
+    // tmaniero
+    // add correct visibilitychange event.
+    if (document.hidden !== undefined) { // Opera 12.10 and Firefox 18 and later support 
+      document.addEventListener('visibilitychange', SDL.receiveEvent);  
+    } else if (document.mozHidden !== undefined) {
+      document.addEventListener('mozvisibilitychange', SDL.receiveEvent);
+    } else if (document.msHidden !== undefined) {
+      document.addEventListener('msvisibilitychange', SDL.receiveEvent);
+    } else if (document.webkitHidden !== undefined) {
+      document.addEventListener('webkitvisibilitychange', SDL.receiveEvent);
+    }
+
+    if ((window.onpageshow !== undefined) && (window.onpagehide !== undefined))
+    {
+      window.addEventListener('pageshow', SDL.receiveEvent);
+      window.addEventListener('pagehide', SDL.receiveEvent);
+    }
+
+    // orientation change
+    window.addEventListener('orientationchange', SDL.receiveEvent);   
 
     if (initFlags & 0x200) {
       // SDL_INIT_JOYSTICK
@@ -1070,6 +1151,7 @@ var LibrarySDL = {
     SDL.DOMEventToSDLEvent['touchmove']  = 0x702  /* SDL_FINGERMOTION */;
     SDL.DOMEventToSDLEvent['unload']     = 0x100  /* SDL_QUIT */;
     SDL.DOMEventToSDLEvent['resize']     = 0x7001 /* SDL_VIDEORESIZE/SDL_EVENT_COMPAT2 */;
+    SDL.DOMEventToSDLEvent['visibilitychange'] = 0x7000 /* SDL_ACTIVEEVENT/SDL_EVENT_COMPAT1 */;
     // These are not technically DOM events; the HTML gamepad API is poll-based.
     // However, we define them here, as the rest of the SDL code assumes that
     // all SDL events originate as DOM events.

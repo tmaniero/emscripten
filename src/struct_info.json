@@ -999,6 +999,11 @@
                 "type", 
                 "w", 
                 "h"
+            ],
+            "SDL_ActiveEvent": [
+                "type", 
+                "gain", 
+                "state"
             ]
         }
     },
