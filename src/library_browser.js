@@ -351,6 +351,7 @@ mergeInto(LibraryManager.library, {
       function fullScreenChange() {
         Browser.isFullScreen = false;
         var canvasContainer = canvas.parentNode;
+        Browser.updateCanvasDimensions(canvas);
         if ((document['webkitFullScreenElement'] || document['webkitFullscreenElement'] ||
              document['mozFullScreenElement'] || document['mozFullscreenElement'] ||
              document['fullScreenElement'] || document['fullscreenElement'] ||
@@ -375,7 +376,6 @@ mergeInto(LibraryManager.library, {
           if (Browser.resizeCanvas) Browser.setWindowedCanvasSize();
         }
         if (Module['onFullScreen']) Module['onFullScreen'](Browser.isFullScreen);
-        Browser.updateCanvasDimensions(canvas);
       }
 
       if (!Browser.fullScreenHandlersInstalled) {
