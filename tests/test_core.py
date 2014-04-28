@@ -5635,7 +5635,6 @@ def process(filename):
 
   def test_embind(self):
     if self.emcc_args is None: return self.skip('requires emcc')
-    if os.environ.get('EMCC_FAST_COMPILER') != '0': return self.skip('todo in fastcomp')
     Building.COMPILER_TEST_OPTS += ['--bind']
 
     src = r'''
@@ -5658,7 +5657,8 @@ def process(filename):
 
   def test_embind_2(self):
     if self.emcc_args is None: return self.skip('requires emcc')
-    if os.environ.get('EMCC_FAST_COMPILER') != '0': return self.skip('todo in fastcomp')
+    if self.run_name == 'asm2f': return self.skip('embind/asm.js not compatible with PRECISE_F32 because it changes signature strings')
+    if self.run_name == 'slow2asm': return self.skip('embind/asm.js requires fastcomp')
     Building.COMPILER_TEST_OPTS += ['--bind', '--post-js', 'post.js']
     open('post.js', 'w').write('''
       Module.print('lerp ' + Module.lerp(1, 2, 0.66) + '.');
@@ -5970,6 +5970,22 @@ def process(filename):
   src.close()
 '''
       self.do_run(src, '|hello|43|world|41|', post_build=post)
+
+  def test_webidl(self):
+    if self.emcc_args is None: return self.skip('requires emcc')
+
+    output = Popen([PYTHON, path_from_root('tools', 'webidl_binder.py'),
+                            path_from_root('tests', 'webidl', 'test.idl'),
+                            'glue']).communicate()[0]
+    assert os.path.exists('glue.cpp')
+    assert os.path.exists('glue.js')
+
+    self.emcc_args += ['--post-js', 'glue.js',
+                       '--post-js', path_from_root('tests', 'webidl', 'post.js')]
+    shutil.copyfile(path_from_root('tests', 'webidl', 'test.h'), self.in_dir('test.h'))
+    shutil.copyfile(path_from_root('tests', 'webidl', 'test.cpp'), self.in_dir('test.cpp'))
+    src = open('test.cpp').read()
+    self.do_run(src, open(path_from_root('tests', 'webidl', 'output.txt')).read())
 
   def test_typeinfo(self):
     if os.environ.get('EMCC_FAST_COMPILER') != '0': return self.skip('fastcomp does not support RUNTIME_TYPE_INFO')
