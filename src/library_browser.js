@@ -430,11 +430,13 @@ mergeInto(LibraryManager.library, {
       });
     },
     safeSetTimeout: function(func, timeout) {
+      Module['noExitRuntime'] = true;
       return setTimeout(function() {
         if (!ABORT) func();
       }, timeout);
     },
     safeSetInterval: function(func, timeout) {
+      Module['noExitRuntime'] = true;
       return setInterval(function() {
         if (!ABORT) func();
       }, timeout);
@@ -886,6 +888,8 @@ mergeInto(LibraryManager.library, {
 
   emscripten_set_main_loop: function(func, fps, simulateInfiniteLoop, arg) {
     Module['noExitRuntime'] = true;
+
+    assert(!Browser.mainLoop.scheduler, 'there can only be one main loop function at once: call emscripten_cancel_main_loop to cancel the previous one, if you want to');
 
     Browser.mainLoop.runner = function Browser_mainLoop_runner() {
       if (ABORT) return;

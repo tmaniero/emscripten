@@ -1366,9 +1366,11 @@ try:
     for header in input_files:
       assert header.endswith(HEADER_ENDINGS), 'if you have one header input, we assume you want to precompile headers, and cannot have source files or other inputs as well: ' + str(input_files) + ' : ' + header
     args = newargs + shared.EMSDK_CXX_OPTS + input_files
-    logging.debug("running (for precompiled headers: " + call + ' ' + ' '.join(args))
+    if specified_target:
+      args += ['-o', specified_target]
+    logging.debug("running (for precompiled headers): " + call + ' ' + ' '.join(args))
     execute([call] + args) # let compiler frontend print directly, so colors are saved (PIPE kills that)
-    sys.exit(1)
+    sys.exit(0)
 
   def get_bitcode_file(input_file):
     if final_suffix not in JS_CONTAINING_SUFFIXES:
@@ -1725,7 +1727,7 @@ try:
       # with commaified code breaks late aggressive variable elimination)
       if shared.Settings.SIMPLIFY_IFS and (debug_level == 0 or profiling) and shared.Settings.OUTLINING_LIMIT == 0: js_optimizer_queue += ['simplifyIfs']
 
-      if opt_level >= 3 and shared.Settings.PRECISE_F32: js_optimizer_queue += ['optimizeFrounds']
+      if shared.Settings.PRECISE_F32: js_optimizer_queue += ['optimizeFrounds']
 
   if closure and not shared.Settings.ASM_JS:
     flush_js_optimizer_queue()
@@ -1744,7 +1746,7 @@ try:
       js_optimizer_extra_info['sizeToOutline'] = shared.Settings.OUTLINING_LIMIT
 
     if opt_level >= 2 and (not closure or shared.Settings.ASM_JS) and shared.Settings.RELOOP and debug_level < 3:
-      if shared.Settings.ASM_JS and opt_level >= 3 and shared.Settings.OUTLINING_LIMIT == 0:
+      if shared.Settings.ASM_JS and opt_level >= 3:
         js_optimizer_queue += ['registerizeHarder']
       else:
         js_optimizer_queue += ['registerize']

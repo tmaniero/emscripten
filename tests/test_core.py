@@ -3905,6 +3905,8 @@ Pass: 0.000012 0.000012''')
     self.do_run_from_file(src, output)
 
   def test_sscanf_hex(self):
+    if Settings.USE_TYPED_ARRAYS != 2: return self.skip('requires ta2')
+
     test_path = path_from_root('tests', 'core', 'test_sscanf_hex')
     src, output = (test_path + s for s in ('.in', '.out'))
 
@@ -4251,6 +4253,11 @@ def process(filename):
     if not self.is_emscripten_abi(): return self.skip('asmjs-unknown-emscripten needed for inline js')
     src = open(path_from_root('tests', 'fs', 'test_nodefs_rw.c'), 'r').read()
     self.do_run(src, 'success', force_c=True, js_engines=[NODE_JS])
+
+  def test_fs_trackingdelegate(self):
+    src = path_from_root('tests', 'fs', 'test_trackingdelegate.c')
+    out = path_from_root('tests', 'fs', 'test_trackingdelegate.out')
+    self.do_run_from_file(src, out)
 
   def test_unistd_access(self):
     self.clear()
@@ -5657,7 +5664,6 @@ def process(filename):
 
   def test_embind_2(self):
     if self.emcc_args is None: return self.skip('requires emcc')
-    if self.run_name == 'asm2f': return self.skip('embind/asm.js not compatible with PRECISE_F32 because it changes signature strings')
     if self.run_name == 'slow2asm': return self.skip('embind/asm.js requires fastcomp')
     Building.COMPILER_TEST_OPTS += ['--bind', '--post-js', 'post.js']
     open('post.js', 'w').write('''

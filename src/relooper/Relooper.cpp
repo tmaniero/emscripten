@@ -17,6 +17,10 @@
 typedef std::string ministring;
 #endif
 
+// uncomment these out to get LLVM errs() debugging support
+//#include <llvm/Support/raw_ostream.h>
+//using namespace llvm;
+
 template <class T, class U> static bool contains(const T& container, const U& contained) {
   return container.count(contained);
 }
@@ -202,6 +206,7 @@ void Block::Render(bool InLoop) {
   if (Fused) {
     PrintDebug("Fusing Multiple to Simple\n");
     Parent->Next = Parent->Next->Next;
+    Fused->UseSwitch = false; // TODO: emit switches here
     Fused->RenderLoopPrefix();
 
     // When the Multiple has the same number of groups as we have branches,
@@ -319,11 +324,7 @@ void MultipleShape::RenderLoopPrefix() {
       }
     } else {
       if (Labeled) {
-        if (UseSwitch) {
-          PrintIndented("L%d: ", Id);
-        } else {
-          PrintIndented("L%d: do {\n", Id);
-        }
+        PrintIndented("L%d: do {\n", Id);
       } else {
         PrintIndented("do {\n");
       }
