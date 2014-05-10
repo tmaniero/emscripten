@@ -4259,6 +4259,13 @@ def process(filename):
     out = path_from_root('tests', 'fs', 'test_trackingdelegate.out')
     self.do_run_from_file(src, out)
 
+  def test_fs_writeFile(self):
+    if self.emcc_args is None: return self.skip('requires emcc')
+    self.emcc_args += ['-s', 'DISABLE_EXCEPTION_CATCHING=1'] # see issue 2334
+    src = path_from_root('tests', 'fs', 'test_writeFile.cc')
+    out = path_from_root('tests', 'fs', 'test_writeFile.out')
+    self.do_run_from_file(src, out)
+
   def test_unistd_access(self):
     self.clear()
     if not self.is_emscripten_abi(): return self.skip('asmjs-unknown-emscripten needed for inline js')
@@ -4927,6 +4934,8 @@ def process(filename):
       print "disabling inlining" # without registerize (which -g disables), we generate huge amounts of code
       Settings.INLINING_LIMIT = 50
 
+    #Settings.OUTLINING_LIMIT = 60000
+
     self.do_run(r'''
                       #define SQLITE_DISABLE_LFS
                       #define LONGDOUBLE_TYPE double
@@ -5278,7 +5287,7 @@ def process(filename):
         #if os.path.basename(name) != '4.c': continue
         if 'newfail' in name: continue
         if os.environ.get('EMCC_FAST_COMPILER') == '0' and os.path.basename(name) in [
-          '18.cpp', '15.c'
+          '18.cpp', '15.c', '21.c'
         ]: continue # works only in fastcomp
         if x == 'lto' and self.run_name == 'default' and os.path.basename(name) in [
           '19.c'
@@ -6520,6 +6529,28 @@ def process(filename):
   def test_locale(self):
     if self.emcc_args is None: return self.skip('needs emcc')
     self.do_run_from_file(path_from_root('tests', 'test_locale.c'), path_from_root('tests', 'test_locale.out'))
+
+  def test_64bit_return_value(self):
+    # This test checks that the most significant 32 bits of a 64 bit long are correctly made available
+    # to native JavaScript applications that wish to interact with compiled code returning 64 bit longs.
+    # The MS 32 bits should be available in Runtime.getTempRet0() even when compiled with -O2 --closure 1
+    # Run with ./runner.py test_64bit_return_value
+
+    # Compile test.c and wrap it in a native JavaScript binding so we can call our compiled function from JS.
+    Popen([PYTHON, EMCC, path_from_root('tests', 'return64bit', 'test.c'), '--pre-js', path_from_root('tests', 'return64bit', 'testbindstart.js'), '--pre-js', path_from_root('tests', 'return64bit', 'testbind.js'), '--post-js', path_from_root('tests', 'return64bit', 'testbindend.js'), '-s', 'EXPORTED_FUNCTIONS=["_test"]', '-o', 'test.js', '-O2', '--closure', '1'], stdout=PIPE, stderr=PIPE).communicate()
+
+    # Simple test program to load the test.js binding library and call the binding to the
+    # C function returning the 64 bit long.
+    open(os.path.join(self.get_dir(), 'testrun.js'), 'w').write('''
+      var test = require("./test.js");
+      test.runtest();
+    ''')
+
+    # Run the test and confirm the output is as expected.
+    if NODE_JS in JS_ENGINES:
+      out = run_js('testrun.js', engine=NODE_JS, full_output=True)
+      assert "low = 5678" in out
+      assert "high = 1234" in out
 
 # Generate tests for everything
 def make_run(fullname, name=-1, compiler=-1, embetter=0, quantum_size=0,
